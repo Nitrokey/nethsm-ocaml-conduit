@@ -73,7 +73,7 @@ module type S = sig
   val connect : t -> client -> flow Lwt.t
   (** Connect a conduit using client configuration. *)
 
-  val listen : t -> server -> (flow -> unit Lwt.t) -> unit Lwt.t
+  val listen : t -> server -> (Ipaddr.t -> flow -> unit Lwt.t) -> unit Lwt.t
   (** Listen to a conduit using a server configuration. *)
 end
 
