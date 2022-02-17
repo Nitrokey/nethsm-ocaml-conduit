@@ -56,14 +56,14 @@ module type S = sig
   module Flow : Mirage_flow.S with type flow = flow
 
   val connect : t -> client -> flow Lwt.t
-  val listen : t -> server -> (flow -> unit Lwt.t) -> unit Lwt.t
+  val listen : t -> server -> (Ipaddr.t -> flow -> unit Lwt.t) -> unit Lwt.t
 end
 
 (* TCP *)
 let tcp_client i p = Lwt.return (`TCP (i, p))
 let tcp_server _ p = Lwt.return (`TCP p)
 
-module TCP (S : Mirage_stack.V4V6) = struct
+module TCP (S : Tcpip.Stack.V4V6) = struct
   module Flow = S.TCP
 
   type flow = Flow.flow
@@ -85,7 +85,9 @@ module TCP (S : Mirage_stack.V4V6) = struct
     match s with
     | `TCP port ->
         let s, _u = Lwt.task () in
-        S.listen_tcp t ~port (fun flow -> fn flow);
+        S.TCP.listen (S.tcp t) ~port (fun flow ->
+            let ip, _ = S.TCP.dst flow in
+            fn ip flow);
         s
     | _ -> err_not_supported s "listen"
 end
@@ -130,11 +132,13 @@ struct
 
   let listen (t : t) (s : server) fn =
     match s with
-    | `Vchan (`Direct (domid, port)) -> V.server ~domid ~port () >>= fn
+    | `Vchan (`Direct (domid, port)) ->
+      V.server ~domid ~port () >>= fn Ipaddr.(V4 V4.unspecified)
     | `Vchan `Domain_socket ->
         XS.listen t >>= fun conns ->
         Lwt_stream.iter_p
-          (function `Direct (domid, port) -> V.server ~domid ~port () >>= fn)
+          (function `Direct (domid, port) ->
+             V.server ~domid ~port () >>= fn Ipaddr.(V4 V4.unspecified))
           conns
     | _ -> err_not_supported s "listen"
 end
@@ -212,11 +216,11 @@ module TLS (S : S) = struct
   let listen (t : t) (s : server) fn =
     match s with
     | `TLS (c, x) ->
-        S.listen t x (fun flow ->
+        S.listen t x (fun ip flow ->
             TLS.server_of_flow c flow >>= function
             | Error e -> err_flow_write "listen" e
-            | Ok flow -> fn (TLS flow))
-    | _ -> S.listen t s (fun f -> fn (Clear f))
+            | Ok flow -> fn ip (TLS flow))
+    | _ -> S.listen t s (fun ip f -> fn ip (Clear f))
 end
 
 module Endpoint (P : Mirage_clock.PCLOCK) = struct

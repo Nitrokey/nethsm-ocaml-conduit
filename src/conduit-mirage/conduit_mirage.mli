@@ -73,13 +73,13 @@ module type S = sig
   val connect : t -> client -> flow Lwt.t
   (** Connect a conduit using client configuration. *)
 
-  val listen : t -> server -> (flow -> unit Lwt.t) -> unit Lwt.t
+  val listen : t -> server -> (Ipaddr.t -> flow -> unit Lwt.t) -> unit Lwt.t
   (** Listen to a conduit using a server configuration. *)
 end
 
 (** {2 TCP} *)
 
-module TCP (S : Mirage_stack.V4V6) :
+module TCP (S : Tcpip.Stack.V4V6) :
   S with type t = S.t and type flow = S.TCP.flow
 
 (** {2 VCHAN} *)

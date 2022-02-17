@@ -17,4 +17,4 @@ let tcp () =
 let _client () = tcp () >>= fun t -> TCP.connect t client
 
 let _server () =
-  tcp () >>= fun t -> TCP.listen t server (fun _flow -> Lwt.return ())
+  tcp () >>= fun t -> TCP.listen t server (fun _ip _flow -> Lwt.return ())
